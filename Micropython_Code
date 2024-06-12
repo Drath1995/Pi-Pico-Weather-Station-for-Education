@@ -1,10 +1,11 @@
 # Set the refresh interval below. (How often it will get new data)
-sleep_time = 2	# This is defined in seconds e.g. 60 would be 1 minute, 3600 would be an hour
+sleep_time = 5	# This is defined in seconds e.g. 60 would be 1 minute, 3600 would be an hour
 
 # Flags to enable/disable sensor outputs, set True to enable/False to disable
-ENABLE_BME280 = False	#PiicoDev Atmospheric Sensor
-ENABLE_ENS160 = False	#PiicoDev Air Quality Sensor
-ENABLE_VELM6030 = False	#PiicoDev Ambient Light Sensor
+ENABLE_BME280 = True	#PiicoDev Atmospheric Sensor
+ENABLE_ENS160 = True	#PiicoDev Air Quality Sensor
+ENABLE_VELM6030 = True	#PiicoDev Ambient Light Sensor
+ENABLE_QMC6310 = True	#Piicodev Magnetomoter 
 ENABLE_TIMER = True	#Makerverse Timer Hat
 
 ################################################
@@ -20,11 +21,15 @@ if ENABLE_BME280:
 if ENABLE_VELM6030:
     from PiicoDev_VEML6030 import PiicoDev_VEML6030
 
+if ENABLE_QMC6310:
+    from PiicoDev_QMC6310 import PiicoDev_QMC6310 
+
 if ENABLE_TIMER:
     from machine import Pin, ADC
     
 from PiicoDev_Unified import sleep_ms
-
+from time import sleep
+from machine import Pin
 
 # Initialising all sensors
 if ENABLE_ENS160:
@@ -36,14 +41,18 @@ if ENABLE_BME280:
 if ENABLE_VELM6030:
     light = PiicoDev_VEML6030()  # Initialise the VEML6030 module
 
+if ENABLE_QMC6310:
+    compass = PiicoDev_QMC6310(range=1200) # Initialise the QMC6310 module
+
 # Defining variables
 #BME280
 if ENABLE_BME280:
     sensor = PiicoDev_BME280(t_mode=2, p_mode=5, h_mode=1,iir=2)	
-    zeroAlt = sensor.altitude(pressure_sea_level=1013.25)
+    
 
 #Timer Hat
 DONE = Pin(22, Pin.OUT) 	#Setting this pin High will remove power, and wait for the next interval
+led = Pin(25, Pin.OUT)
 
 
 while True:    
@@ -51,9 +60,11 @@ while True:
         
         tempC, presPa, humRH = sensor.values()
         pres_hPa = presPa / 100
-        print(str(tempC)+" °C  " + str(pres_hPa)+" hPa  " + str(humRH)+" %RH")
-        print(sensor.altitude() - zeroAlt) # show the CHANGE in altitude, since the script began
-        sleep_(sleep_time)
+        print('Temp: ' + str(tempC)+" °C  ")
+        print('Pressure: ' + str(pres_hPa)+" hPa  ")
+        print('Humidity: ' + str(humRH)+" % ")
+        print(" ")
+        #sleep(sleep_time)
 
 
     if ENABLE_ENS160:
@@ -68,16 +79,31 @@ while True:
         print('TVOC: ' + str(tvoc) + ' ppb')
         
         # print equivalent CO2
-        print('eCO2: ' + str(eco2.value) + ' ppm (' + str(eco2.rating) +')' + ' Temperature: ' + str(ens160.temperature) + ' Humidity: ' + str(ens160.humidity))
-        sleep(sleep_time)
+        print('eCO2: ' + str(eco2.value) + ' ppm (' + str(eco2.rating) +')')
+        print(" ")
+        #sleep(sleep_time)
 
     if ENABLE_VELM6030:
 
         # Read and print light data
         lightVal = light.read()
         print(str(lightVal) + " lux")
-        sleep(sleep_time)
-
-    if ENABLE_TIMER:
-        DONE.on() # Assert DONE signal; powers down Pico
+        print(" ")
+        #sleep(sleep_time)
     
+    if ENABLE_QMC6310:
+        heading = compass.readHeading()   # get the heading from the sensor
+        
+        if compass.dataValid():           # Rejects invalid data
+            heading = round(heading)      # round to the nearest degree
+            print( str(heading) + "°")    # print the data with a degree symbol
+            #sleep(sleep_time)
+        
+    if ENABLE_TIMER:
+        led.on()
+        sleep(sleep_time)
+        led.off()
+        DONE.on() # Assert DONE signal; powers down Pico
+        
+        
+
